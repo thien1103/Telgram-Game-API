@@ -113,7 +113,7 @@ app.get("/user/:userId/gold", async (req, res) => {
     connection.release();
 
     if (rows.length > 0) {
-      res.status(200).json({ gold: rows[0].gold });
+      res.status(200).json( rows[0].gold );
     } else {
       res.status(404).json({ message: "User not found" });
     }
@@ -157,12 +157,80 @@ app.post("/user/:userId/gold", async (req, res) => {
     if (result.affectedRows > 0) {
       res
         .status(200)
-        .json({ message: "User gold updated successfully", userId, gold });
+        .json({ message: "User gold updated successfully"});
     } else {
       res.status(500).json({ message: "Failed to update user gold" });
     }
   } catch (error) {
     console.error("Error updating user gold:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+/************************************LEVEL API*********************************************************** */
+// 1. GET Endpoint to Fetch User's Level
+app.get("/user/:userId/level", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      "SELECT level FROM user WHERE id = ?",
+      [userId]
+    );
+    connection.release();
+
+    if (rows.length > 0) {
+      res.status(200).json( rows[0].level );
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching user level:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// 2. POST Endpoint to Update User's Gold
+app.post("/user/:userId/level", async (req, res) => {
+  const userId = req.params.userId;
+  const { level } = req.body;
+
+  if (level === undefined) {
+    return res.status(400).json({ message: "Missing 'level' in request body" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // Check if user exists
+    const [existingUser] = await connection.execute(
+      "SELECT id FROM user WHERE id = ?",
+      [userId]
+    );
+
+    if (existingUser.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update user's gold
+    const [result] = await connection.execute(
+      "UPDATE user SET level = ? WHERE id = ?",
+      [level, userId]
+    );
+
+    connection.release();
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json({ message: "User level updated successfully"});
+    } else {
+      res.status(500).json({ message: "Failed to update user level" });
+    }
+  } catch (error) {
+    console.error("Error updating user level:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
