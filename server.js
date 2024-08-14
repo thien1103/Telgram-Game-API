@@ -26,13 +26,7 @@ const pool = mysql.createPool({
   connectTimeout: 60000,
   acquireTimeout: 60000,
 });
-
-// Start the Telegram bot
-bot.on("message", async (ctx) => {
-  const userId = ctx.from.id;
-  await ctx.reply(`Your Telegram user ID is: ${userId}`);
-});
-
+/****************************************USER API*************************************************************/
 // API endpoint to get user data
 app.get("/user/:userId", async (req, res) => {
   const userId = req.params.userId;
@@ -104,6 +98,75 @@ app.post("/user/:userId", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+/************************************GOLD API*********************************************************** */
+// 1. GET Endpoint to Fetch User's Gold
+app.get("/user/:userId/gold", async (req, res) => {
+  const userId = req.params.userId;
+
+  try {
+    const connection = await pool.getConnection();
+    const [rows] = await connection.execute(
+      "SELECT gold FROM user WHERE id = ?",
+      [userId]
+    );
+    connection.release();
+
+    if (rows.length > 0) {
+      res.status(200).json({ gold: rows[0].gold });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    console.error("Error fetching user gold:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// 2. POST Endpoint to Update User's Gold
+app.post("/user/:userId/gold", async (req, res) => {
+  const userId = req.params.userId;
+  const { gold } = req.body;
+
+  if (gold === undefined) {
+    return res.status(400).json({ message: "Missing 'gold' in request body" });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+
+    // Check if user exists
+    const [existingUser] = await connection.execute(
+      "SELECT id FROM user WHERE id = ?",
+      [userId]
+    );
+
+    if (existingUser.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update user's gold
+    const [result] = await connection.execute(
+      "UPDATE user SET gold = ? WHERE id = ?",
+      [gold, userId]
+    );
+
+    connection.release();
+
+    if (result.affectedRows > 0) {
+      res
+        .status(200)
+        .json({ message: "User gold updated successfully", userId, gold });
+    } else {
+      res.status(500).json({ message: "Failed to update user gold" });
+    }
+  } catch (error) {
+    console.error("Error updating user gold:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 
 // Start the bot
 bot.launch();
